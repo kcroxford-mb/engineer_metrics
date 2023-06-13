@@ -6,6 +6,8 @@ import datetime
 import re
 from typing import List,Dict
 from github import Github
+import aiohttp
+import asyncio
 
 def convert_time(
         ts: str
@@ -88,7 +90,7 @@ def process_prs(repo: str,
 
     return stats
 
-def main(args):
+async def main(args):
     # define args from the CLI 
     org = args.org
     excluded_repos = args.excludedRepos
@@ -105,7 +107,8 @@ def main(args):
     
     }
     
-    repos = g.get_repo_list(params) 
+    repos = await g.get_repo_list(params) 
+
     if not excluded_repos:
         excluded_repos = []
 
@@ -216,5 +219,5 @@ if __name__ == "__main__":
     ) 
 
     args = parser.parse_args()
-    main(args)
+    asyncio.run(main(args))
 

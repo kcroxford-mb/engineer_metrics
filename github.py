@@ -3,6 +3,8 @@ import requests
 import datetime
 from typing import List,Dict
 import pandas as pd
+import aiohttp
+import asyncio
 
 pd.Series(dtype='float64')
 
@@ -16,21 +18,21 @@ class Github:
             "Authorization" : f"Bearer {self.token}", 
             "X-GitHub-Api-Version": "2022-11-28"
         }
-        self.s = requests.Session()
+        self.s = aiohttp.ClientSession() 
         self.s.headers.update(self.headers)
         
         
-    def get_repo_list(self, params: dict ) -> List:
+    async def get_repo_list(self, params: dict ) -> List:
         '''
         gets a list of all of the repos under the org
         '''
-        req = self.s.get(
+
+        req = await self._async_get(
             f"{self.base_url}/orgs/{self.org}/repos", 
             params=params
         )
         
-        d = self.paginate(req)
-        
+        d = await self.paginate(req)
         res = []
         for l in d['data']:
             for entry in l:
@@ -95,13 +97,14 @@ class Github:
         return total
     
       
-    def paginate(self, d: requests.models.Response ) -> Dict:
+    async def paginate(self, d) -> Dict:
         '''
         Github's API uses the links for replies with multiple pages.
         '''
         resp = {'pages': 0, 'data' : []}
         next_page = None
         next_page = d.links.get('next')
+        print(next_page)
         
         # without a next page, return
         if not next_page:
@@ -115,9 +118,15 @@ class Github:
 
         # Iterate over the linked pagination
         while next_page is not None: 
-            req = self.s.get(next_page.get('url')) 
+            req = await self._async_get(next_page.get('url')) 
             resp['data'].append(req.json()) 
             next_page = req.links.get('next') 
             resp['pages'] += 1 
 
-        return resp
+        results = await asyncio.gather(*resp['data'])
+        return results
+    
+    async def _async_get(self,url, params = {}):
+        async with self.s as session:
+            async with session.get(url, headers=self.headers, params=params) as response:
+                return response
